@@ -1,0 +1,67 @@
+{
+  "Wayz NestJS controller": {
+    "scope": "typescript",
+    "prefix": "wayz-controller",
+    "description": "Create an HTTP controller in the presentation layer",
+    "body": [
+      "import { Controller, Get } from '@nestjs/common';",
+      "import { ApiTags } from '@nestjs/swagger';",
+      "",
+      "@ApiTags('${1:feature}')",
+      "@Controller({ path: '${1:feature}', version: '1' })",
+      "export class ${2:Feature}Controller {",
+      "  constructor(private readonly service: ${2:Feature}Service) {}",
+      "",
+      "  @Get()",
+      "  list() {",
+      "    return this.service.list();",
+      "  }",
+      "}"
+    ]
+  },
+  "Wayz NestJS application use case": {
+    "scope": "typescript",
+    "prefix": "wayz-usecase",
+    "description": "Create an application-layer NestJS use-case service",
+    "body": [
+      "import { Injectable } from '@nestjs/common';",
+      "",
+      "@Injectable()",
+      "export class ${1:Feature}Service {",
+      "  async ${2:execute}(): Promise<void> {",
+      "    $0",
+      "  }",
+      "}"
+    ]
+  },
+  "Wayz validation DTO": {
+    "scope": "typescript",
+    "prefix": "wayz-dto",
+    "description": "Create a request DTO with class-validator",
+    "body": [
+      "import { IsString, MaxLength } from 'class-validator';",
+      "",
+      "export class ${1:CreateFeature}Dto {",
+      "  @IsString()",
+      "  @MaxLength(${2:100})",
+      "  ${3:name}!: string;",
+      "}"
+    ]
+  },
+  "Wayz feature module": {
+    "scope": "typescript",
+    "prefix": "wayz-module",
+    "description": "Create a NestJS feature module",
+    "body": [
+      "import { Module } from '@nestjs/common';",
+      "",
+      "@Module({",
+      "  imports: [],",
+      "  controllers: [${1:Feature}Controller],",
+      "  providers: [${1:Feature}Service],",
+      "  exports: [${1:Feature}Service],",
+      "})",
+      "export class ${1:Feature}Module {}"
+    ]
+  }
+}

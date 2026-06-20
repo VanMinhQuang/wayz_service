@@ -20,5 +20,6 @@ API chạy tại `http://localhost:3000`; Swagger ở `http://localhost:3000/doc
 - [Hướng dẫn chạy và cấu hình](docs/RUNBOOK.md)
 - [Danh mục API](docs/API.md)
 - [Bruno API collection](bruno/README.md)
+- [Công cụ, extension và snippets](docs/DEVELOPER-TOOLS.md)
 
 MapVina, SMS, S3 và FCM được cô lập qua adapter. Local dùng SMS logger; MapVina cần URL/key và mapping API thực tế trước khi gọi route/geocode được.

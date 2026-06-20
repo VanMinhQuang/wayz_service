@@ -7,6 +7,8 @@
     "start:dev": "nest start --watch --entryFile bootstrap/main",
     "build": "nest build",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\" \"docs/**/*.md\" \"*.{json,md,yml,yaml}\" \".github/**/*.yml\" \"bruno/**/*.json\" \"bruno/**/*.md\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\" \"docs/**/*.md\" \"*.{json,md,yml,yaml}\" \".github/**/*.yml\" \"bruno/**/*.json\" \"bruno/**/*.md\"",
     "test": "jest --runInBand",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand"
   },

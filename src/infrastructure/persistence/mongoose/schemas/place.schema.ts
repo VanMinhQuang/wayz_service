@@ -1,9 +1,17 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 export type PlaceDocument = HydratedDocument<Place>;
-@Schema({ _id: false }) export class GeoPoint { @Prop({ enum: ['Point'], default: 'Point' }) type!: 'Point'; @Prop({ type: [Number], required: true }) coordinates!: [number, number]; }
+@Schema({ _id: false })
+export class GeoPoint {
+  @Prop({ enum: ['Point'], default: 'Point' }) type!: 'Point';
+  @Prop({ type: [Number], required: true }) coordinates!: [number, number];
+}
 @Schema({ timestamps: true })
-export class Category { @Prop({ required: true, unique: true }) name!: string; @Prop() icon?: string; @Prop({ default: true }) active!: boolean; }
+export class Category {
+  @Prop({ required: true, unique: true }) name!: string;
+  @Prop() icon?: string;
+  @Prop({ default: true }) active!: boolean;
+}
 export class Place {
   @Prop({ required: true, index: true }) name!: string;
   @Prop({ required: true }) address!: string;

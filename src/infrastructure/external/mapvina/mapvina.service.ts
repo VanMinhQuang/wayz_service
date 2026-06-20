@@ -5,7 +5,8 @@ type Coordinates = { lat: number; lng: number };
 export class MapVinaService {
   constructor(private readonly config: ConfigService) {}
   private ensureConfigured() {
-    if (!this.config.get('MAPVINA_BASE_URL') || !this.config.get('MAPVINA_API_KEY')) throw new ServiceUnavailableException('Map provider is not configured');
+    if (!this.config.get('MAPVINA_BASE_URL') || !this.config.get('MAPVINA_API_KEY'))
+      throw new ServiceUnavailableException('Map provider is not configured');
   }
   async geocode(query: string) {
     this.ensureConfigured();

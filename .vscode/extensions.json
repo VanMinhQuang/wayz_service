@@ -1,0 +1,9 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ronanlevesque.vscode-nestjs",
+    "firsttris.vscode-jest-runner",
+    "ms-azuretools.vscode-docker"
+  ]
+}

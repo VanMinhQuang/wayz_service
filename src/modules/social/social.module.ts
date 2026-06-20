@@ -1,2 +1,11 @@
-import { Module } from '@nestjs/common'; import { SchemasModule } from '../../infrastructure/persistence/mongoose/schemas/schemas.module'; import { SocialController } from './presentation/http/social.controller'; import { SocialService } from './application/social.service';
-@Module({ imports: [SchemasModule], controllers: [SocialController], providers: [SocialService], exports: [SocialService] }) export class SocialModule {}
+import { Module } from '@nestjs/common';
+import { SchemasModule } from '../../infrastructure/persistence/mongoose/schemas/schemas.module';
+import { SocialController } from './presentation/http/social.controller';
+import { SocialService } from './application/social.service';
+@Module({
+  imports: [SchemasModule],
+  controllers: [SocialController],
+  providers: [SocialService],
+  exports: [SocialService],
+})
+export class SocialModule {}

@@ -3,21 +3,142 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Event, EventInvitation, Notification, PlaceShare } from '../../../infrastructure/persistence/mongoose/schemas/event.schema';
+import {
+  Event,
+  EventInvitation,
+  Notification,
+  PlaceShare,
+} from '../../../infrastructure/persistence/mongoose/schemas/event.schema';
 import { Place } from '../../../infrastructure/persistence/mongoose/schemas/place.schema';
 import { NotificationService } from '../../../infrastructure/external/notification/notification.service';
 import { SocialService } from '../../social/application/social.service';
 import { CreateEventDto, SharePlaceDto, UpdateEventDto } from '../presentation/http/events.dto';
-@Injectable() export class EventsService {
-  constructor(@InjectModel(Event.name) private readonly events: Model<Event>, @InjectModel(EventInvitation.name) private readonly invitations: Model<EventInvitation>, @InjectModel(PlaceShare.name) private readonly shares: Model<PlaceShare>, @InjectModel(Place.name) private readonly places: Model<Place>, @InjectModel(Notification.name) private readonly notifications: Model<Notification>, private readonly social: SocialService, private readonly notifier: NotificationService, @InjectQueue('event-reminders') private readonly reminderQueue: Queue) {}
-  async sharePlace(me: string, dto: SharePlaceDto) { if (!!dto.recipientId === !!dto.groupId) throw new BadRequestException('Choose exactly one recipient or group'); if (!await this.places.exists({ _id: dto.placeId, active: true })) throw new NotFoundException('Place not found'); if (dto.recipientId) { const allowed = (await this.social.friendIds(me)).some((id) => id.toString() === dto.recipientId); if (!allowed) throw new ForbiddenException('Can only share with a friend'); } else await this.social.ensureMember(dto.groupId!, me); const share = await this.shares.create({ senderId: me, ...dto }); if (dto.recipientId) await this.notifier.create(dto.recipientId, 'place.shared', { shareId: share._id.toString() }); return share; }
-  async createEvent(me: string, dto: CreateEventDto) { const when = new Date(dto.scheduledAt); if (Number.isNaN(+when) || when <= new Date()) throw new BadRequestException('Event must be in the future'); if (!await this.places.exists({ _id: dto.placeId, active: true })) throw new NotFoundException('Place not found'); const invitees = [...new Set(dto.inviteeIds ?? [])].filter((id) => id !== me); if (dto.groupId) { await this.social.ensureMember(dto.groupId, me); const groupMembers = await this.social.listGroups(me); if (!groupMembers.some((g: any) => g._id.toString() === dto.groupId)) throw new ForbiddenException(); } const friends = (await this.social.friendIds(me)).map(String); if (invitees.some((id) => !friends.includes(id))) throw new ForbiddenException('Invitees must be friends'); const event = await this.events.create({ ...dto, creatorId: me, scheduledAt: when }); if (invitees.length) { await this.invitations.insertMany(invitees.map((userId) => ({ eventId: event._id, userId }))); await Promise.all(invitees.map((id) => this.notifier.create(id, 'event.invited', { eventId: event._id.toString() }))); } await this.scheduleReminder(event); return event; }
-  private async scheduleReminder(event: any) { const delay = new Date(event.scheduledAt).getTime() - Date.now() - 60 * 60_000; if (delay > 0) await this.reminderQueue.add('remind', { eventId: event._id.toString() }, { jobId: `event:${event._id}`, delay, removeOnComplete: true }); }
-  async respond(me: string, eventId: string, accepted: boolean) { const invite = await this.invitations.findOne({ eventId, userId: me, status: 'pending' }); if (!invite) throw new NotFoundException('Invitation not found'); invite.status = accepted ? 'accepted' : 'declined'; await invite.save(); const event = await this.events.findById(eventId); if (event) await this.notifier.create(event.creatorId, `event.${invite.status}`, { eventId, userId: me }); return invite; }
-  async update(me: string, id: string, dto: UpdateEventDto) { const event = await this.events.findOne({ _id: id, creatorId: me, status: 'active' }); if (!event) throw new NotFoundException('Event not found'); if (dto.scheduledAt && new Date(dto.scheduledAt) <= new Date()) throw new BadRequestException('Event must be in the future'); Object.assign(event, dto.scheduledAt ? { ...dto, scheduledAt: new Date(dto.scheduledAt) } : dto); await event.save(); await this.scheduleReminder(event); return event; }
-  async cancel(me: string, id: string) { const event = await this.events.findOneAndUpdate({ _id: id, creatorId: me, status: 'active' }, { status: 'cancelled' }, { new: true }); if (!event) throw new NotFoundException('Event not found'); await this.reminderQueue.remove(`event:${id}`).catch(() => undefined); return event; }
-  async listForUser(me: string) { const invitations = await this.invitations.find({ userId: me, status: { $ne: 'declined' } }); return this.events.find({ status: 'active', $or: [{ creatorId: me }, { _id: { $in: invitations.map((i) => i.eventId) } }] }).populate('placeId', 'name address imageKeys').sort({ scheduledAt: 1 }); }
-  async listNotifications(me: string, cursor?: string, limit = 20) { const query: any = { userId: me }; if (cursor) query._id = { $lt: new Types.ObjectId(cursor) }; const rows = await this.notifications.find(query).sort({ _id: -1 }).limit(limit + 1); const hasMore = rows.length > limit; const data = rows.slice(0, limit); return { data, nextCursor: hasMore ? data[data.length - 1]._id.toString() : null }; }
-  async readNotification(me: string, id: string) { const n = await this.notifications.findOneAndUpdate({ _id: id, userId: me }, { read: true }, { new: true }); if (!n) throw new NotFoundException('Notification not found'); return n; }
-  async sendReminder(eventId: string) { const event = await this.events.findOne({ _id: eventId, status: 'active' }); if (!event) return; const invitees = await this.invitations.find({ eventId, status: { $in: ['pending', 'accepted'] } }); await Promise.all([this.notifier.create(event.creatorId, 'event.reminder', { eventId }), ...invitees.map((i) => this.notifier.create(i.userId, 'event.reminder', { eventId }))]); }
+@Injectable()
+export class EventsService {
+  constructor(
+    @InjectModel(Event.name) private readonly events: Model<Event>,
+    @InjectModel(EventInvitation.name) private readonly invitations: Model<EventInvitation>,
+    @InjectModel(PlaceShare.name) private readonly shares: Model<PlaceShare>,
+    @InjectModel(Place.name) private readonly places: Model<Place>,
+    @InjectModel(Notification.name) private readonly notifications: Model<Notification>,
+    private readonly social: SocialService,
+    private readonly notifier: NotificationService,
+    @InjectQueue('event-reminders') private readonly reminderQueue: Queue,
+  ) {}
+  async sharePlace(me: string, dto: SharePlaceDto) {
+    if (!!dto.recipientId === !!dto.groupId)
+      throw new BadRequestException('Choose exactly one recipient or group');
+    if (!(await this.places.exists({ _id: dto.placeId, active: true })))
+      throw new NotFoundException('Place not found');
+    if (dto.recipientId) {
+      const allowed = (await this.social.friendIds(me)).some((id) => id.toString() === dto.recipientId);
+      if (!allowed) throw new ForbiddenException('Can only share with a friend');
+    } else await this.social.ensureMember(dto.groupId!, me);
+    const share = await this.shares.create({ senderId: me, ...dto });
+    if (dto.recipientId)
+      await this.notifier.create(dto.recipientId, 'place.shared', { shareId: share._id.toString() });
+    return share;
+  }
+  async createEvent(me: string, dto: CreateEventDto) {
+    const when = new Date(dto.scheduledAt);
+    if (Number.isNaN(+when) || when <= new Date())
+      throw new BadRequestException('Event must be in the future');
+    if (!(await this.places.exists({ _id: dto.placeId, active: true })))
+      throw new NotFoundException('Place not found');
+    const invitees = [...new Set(dto.inviteeIds ?? [])].filter((id) => id !== me);
+    if (dto.groupId) {
+      await this.social.ensureMember(dto.groupId, me);
+      const groupMembers = await this.social.listGroups(me);
+      if (!groupMembers.some((g: any) => g._id.toString() === dto.groupId)) throw new ForbiddenException();
+    }
+    const friends = (await this.social.friendIds(me)).map(String);
+    if (invitees.some((id) => !friends.includes(id)))
+      throw new ForbiddenException('Invitees must be friends');
+    const event = await this.events.create({ ...dto, creatorId: me, scheduledAt: when });
+    if (invitees.length) {
+      await this.invitations.insertMany(invitees.map((userId) => ({ eventId: event._id, userId })));
+      await Promise.all(
+        invitees.map((id) => this.notifier.create(id, 'event.invited', { eventId: event._id.toString() })),
+      );
+    }
+    await this.scheduleReminder(event);
+    return event;
+  }
+  private async scheduleReminder(event: any) {
+    const delay = new Date(event.scheduledAt).getTime() - Date.now() - 60 * 60_000;
+    if (delay > 0)
+      await this.reminderQueue.add(
+        'remind',
+        { eventId: event._id.toString() },
+        { jobId: `event:${event._id}`, delay, removeOnComplete: true },
+      );
+  }
+  async respond(me: string, eventId: string, accepted: boolean) {
+    const invite = await this.invitations.findOne({ eventId, userId: me, status: 'pending' });
+    if (!invite) throw new NotFoundException('Invitation not found');
+    invite.status = accepted ? 'accepted' : 'declined';
+    await invite.save();
+    const event = await this.events.findById(eventId);
+    if (event) await this.notifier.create(event.creatorId, `event.${invite.status}`, { eventId, userId: me });
+    return invite;
+  }
+  async update(me: string, id: string, dto: UpdateEventDto) {
+    const event = await this.events.findOne({ _id: id, creatorId: me, status: 'active' });
+    if (!event) throw new NotFoundException('Event not found');
+    if (dto.scheduledAt && new Date(dto.scheduledAt) <= new Date())
+      throw new BadRequestException('Event must be in the future');
+    Object.assign(event, dto.scheduledAt ? { ...dto, scheduledAt: new Date(dto.scheduledAt) } : dto);
+    await event.save();
+    await this.scheduleReminder(event);
+    return event;
+  }
+  async cancel(me: string, id: string) {
+    const event = await this.events.findOneAndUpdate(
+      { _id: id, creatorId: me, status: 'active' },
+      { status: 'cancelled' },
+      { new: true },
+    );
+    if (!event) throw new NotFoundException('Event not found');
+    await this.reminderQueue.remove(`event:${id}`).catch(() => undefined);
+    return event;
+  }
+  async listForUser(me: string) {
+    const invitations = await this.invitations.find({ userId: me, status: { $ne: 'declined' } });
+    return this.events
+      .find({
+        status: 'active',
+        $or: [{ creatorId: me }, { _id: { $in: invitations.map((i) => i.eventId) } }],
+      })
+      .populate('placeId', 'name address imageKeys')
+      .sort({ scheduledAt: 1 });
+  }
+  async listNotifications(me: string, cursor?: string, limit = 20) {
+    const query: any = { userId: me };
+    if (cursor) query._id = { $lt: new Types.ObjectId(cursor) };
+    const rows = await this.notifications
+      .find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1);
+    const hasMore = rows.length > limit;
+    const data = rows.slice(0, limit);
+    return { data, nextCursor: hasMore ? data[data.length - 1]._id.toString() : null };
+  }
+  async readNotification(me: string, id: string) {
+    const n = await this.notifications.findOneAndUpdate(
+      { _id: id, userId: me },
+      { read: true },
+      { new: true },
+    );
+    if (!n) throw new NotFoundException('Notification not found');
+    return n;
+  }
+  async sendReminder(eventId: string) {
+    const event = await this.events.findOne({ _id: eventId, status: 'active' });
+    if (!event) return;
+    const invitees = await this.invitations.find({ eventId, status: { $in: ['pending', 'accepted'] } });
+    await Promise.all([
+      this.notifier.create(event.creatorId, 'event.reminder', { eventId }),
+      ...invitees.map((i) => this.notifier.create(i.userId, 'event.reminder', { eventId })),
+    ]);
+  }
 }
