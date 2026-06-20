@@ -1,0 +1,30 @@
+meta {
+  name: Login
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "phone": "{{phone}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("Login stores tokens", function() {
+    expect(res.status).to.equal(201);
+    bru.setEnvVar("accessToken", res.body.accessToken);
+    bru.setEnvVar("refreshToken", res.body.refreshToken);
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Register
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "phone": "{{phone}}",
+    "password": "{{password}}",
+    "otp": "{{otp}}"
+  }
+}
+
+tests {
+  test("Registration returns tokens", function() {
+    expect(res.status).to.equal(201);
+    expect(res.body.accessToken).to.be.a("string");
+    bru.setEnvVar("accessToken", res.body.accessToken);
+    bru.setEnvVar("refreshToken", res.body.refreshToken);
+  });
+}

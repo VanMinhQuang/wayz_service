@@ -1,0 +1,17 @@
+meta {
+  name: List categories
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/places/categories
+  body: none
+  auth: none
+}
+
+tests {
+  test("Returns categories", function() {
+    expect(res.status).to.equal(200);
+  });
+}

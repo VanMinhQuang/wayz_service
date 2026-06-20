@@ -1,0 +1,21 @@
+meta {
+  name: Find user by phone
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/social/users?phone={{phone}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("Find user succeeds", function() {
+    expect(res.status).to.equal(200);
+  });
+}

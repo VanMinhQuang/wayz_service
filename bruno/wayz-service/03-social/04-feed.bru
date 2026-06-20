@@ -1,0 +1,15 @@
+meta {
+  name: Get friend feed
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/social/feed
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}

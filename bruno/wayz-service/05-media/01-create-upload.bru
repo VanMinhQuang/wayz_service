@@ -1,0 +1,26 @@
+meta {
+  name: Create image upload URL
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/media/uploads
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "purpose": "post",
+    "mimeType": "image/jpeg"
+  }
+}

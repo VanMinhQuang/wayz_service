@@ -1,0 +1,32 @@
+meta {
+  name: Create group
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/social/groups
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "name": "Bruno test group"
+  }
+}
+
+tests {
+  test("Group is created", function() {
+    expect(res.status).to.equal(201);
+    bru.setEnvVar("groupId", res.body._id);
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Search places
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/places/search?q=cafe
+  body: none
+  auth: none
+}
+
+tests {
+  test("Search returns cursor list", function() {
+    expect(res.status).to.equal(200);
+  });
+}

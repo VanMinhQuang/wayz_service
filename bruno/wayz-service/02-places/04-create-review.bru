@@ -1,0 +1,26 @@
+meta {
+  name: Create or update review
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/places/{{placeId}}/reviews
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  content-type: application/json
+}
+
+body:json {
+  {
+    "rating": 5,
+    "text": "Bruno integration test review"
+  }
+}
